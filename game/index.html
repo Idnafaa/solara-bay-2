@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Solara Bay — Open World Crime</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1c2c;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: #f2f5f7; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hidden { display: none !important; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .panel { background: rgba(8, 20, 30, 0.62); border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 10px; backdrop-filter: blur(3px); }
+  #stats { position: absolute; top: 14px; left: 14px; padding: 10px 14px; min-width: 190px; }
+  #cash { font-size: 26px; font-weight: 800; color: #7dff9b; letter-spacing: 0.5px; }
+  #cash small { font-size: 12px; color: #bfe9c8; font-weight: 600; }
+  #healthRow { margin-top: 6px; display: flex; align-items: center; gap: 8px; }
+  #healthRow span { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #cfe3ea; }
+  #healthBarOuter { flex: 1; height: 10px; background: rgba(255,255,255,0.18); border-radius: 6px; overflow: hidden; }
+  #healthBar { height: 100%; width: 100%; background: linear-gradient(90deg, #37d67a, #9be15d); border-radius: 6px; }
+  #wanted { margin-top: 8px; font-size: 22px; letter-spacing: 3px; color: #ffd23e; text-shadow: 0 0 8px rgba(255, 180, 0, 0.7); min-height: 26px; }
+  #wanted .dim { color: rgba(255,255,255,0.22); text-shadow: none; }
+
+  #mapWrap { position: absolute; top: 14px; right: 14px; padding: 8px; }
+  #minimap { display: block; width: 188px; height: 188px; border-radius: 6px; }
+  #mapLabel { text-align: center; font-size: 10px; letter-spacing: 2px; color: #9fc3d4; margin-top: 5px; font-weight: 700; }
+
+  #objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    padding: 9px 18px; font-size: 15px; font-weight: 700; text-align: center; max-width: 46vw; }
+  #objective small { display: block; font-size: 11px; font-weight: 600; color: #ffd23e; letter-spacing: 1px; margin-bottom: 2px; }
+
+  #prompt { position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%);
+    padding: 8px 16px; font-size: 15px; font-weight: 700; }
+  #prompt b { color: #ffd23e; }
+
+  #bustWrap { position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%);
+    width: 280px; padding: 8px 12px; text-align: center; }
+  #bustWrap span { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #ff5d5d; }
+  #bustOuter { height: 9px; background: rgba(255,255,255,0.18); border-radius: 6px; overflow: hidden; margin-top: 5px; }
+  #bustBar { height: 100%; width: 0%; background: #ff3b3b; }
+
+  #speedo { position: absolute; bottom: 16px; right: 16px; padding: 8px 16px; text-align: right; }
+  #speedo b { font-size: 30px; font-weight: 800; }
+  #speedo span { font-size: 11px; color: #9fc3d4; font-weight: 700; letter-spacing: 1px; }
+  #carName { font-size: 12px; font-weight: 700; color: #ffd23e; }
+
+  #hint { position: absolute; bottom: 16px; left: 14px; padding: 8px 12px; font-size: 11px; line-height: 1.7; color: #cfe3ea; }
+  #hint b { color: #fff; }
+
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px;
+    transform: translate(-50%, -50%); pointer-events: none; }
+  #crosshair:before, #crosshair:after { content: ""; position: absolute; background: rgba(255,255,255,0.9); }
+  #crosshair:before { left: 8px; top: 0; width: 2px; height: 18px; }
+  #crosshair:after { left: 0; top: 8px; width: 18px; height: 2px; }
+
+  #toast { position: absolute; top: 84px; left: 50%; transform: translateX(-50%);
+    padding: 9px 20px; font-size: 16px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
+
+  /* ---------- Full screens ---------- */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 24px; }
+  .screen h1 { margin: 0; font-size: 64px; font-weight: 900; letter-spacing: 4px;
+    color: #fff; text-shadow: 0 4px 0 #e8632c, 0 10px 28px rgba(0,0,0,0.6); }
+  .screen h2 { margin: 6px 0 0; font-size: 20px; font-weight: 700; letter-spacing: 6px; color: #ffd23e; }
+  .screen p { max-width: 560px; font-size: 15px; line-height: 1.65; color: #dcebf2; }
+  .screen .btnRow { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+  button { pointer-events: auto; cursor: pointer; border: none; border-radius: 9px;
+    padding: 13px 30px; font-size: 16px; font-weight: 800; letter-spacing: 1px;
+    background: linear-gradient(180deg, #ffb03a, #f07b1d); color: #231303;
+    box-shadow: 0 4px 0 #a34d05, 0 8px 18px rgba(0,0,0,0.45); }
+  button:hover { filter: brightness(1.08); }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 #a34d05; }
+  button.ghost { background: rgba(255,255,255,0.12); color: #fff; box-shadow: none; border: 1px solid rgba(255,255,255,0.35); }
+  #titleScreen { background: linear-gradient(180deg, rgba(6,26,40,0.25) 0%, rgba(6,26,40,0.55) 55%, rgba(4,16,26,0.88) 100%); }
+  #titleScreen .tag { font-size: 12px; letter-spacing: 4px; font-weight: 800; color: #9fd8ef; margin-bottom: 8px; }
+  #titleScreen .controls { font-size: 13px; line-height: 2; color: #cfe3ea; background: rgba(8,20,30,0.55);
+    border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 12px 22px; margin-top: 16px; }
+  #titleScreen .controls b { color: #ffd23e; }
+  .dark { background: rgba(4, 12, 20, 0.82); }
+  .dark h1 { font-size: 52px; }
+  #bustedScreen h1, #wastedScreen h1 { color: #ff5d5d; text-shadow: 0 4px 0 #5c0d0d, 0 10px 28px rgba(0,0,0,0.7); }
+  #storyScreen h1 { color: #7dff9b; text-shadow: 0 4px 0 #0d5c2e, 0 10px 28px rgba(0,0,0,0.6); }
+  .statLine { font-size: 17px; font-weight: 700; color: #ffd23e; margin-top: 4px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="stats" class="panel">
+    <div id="cash">$0 <small>CASH</small></div>
+    <div id="healthRow"><span>HP</span><div id="healthBarOuter"><div id="healthBar"></div></div></div>
+    <div id="wanted"></div>
+  </div>
+  <div id="mapWrap" class="panel">
+    <canvas id="minimap" width="188" height="188"></canvas>
+    <div id="mapLabel">SOLARA BAY</div>
+  </div>
+  <div id="objective" class="panel"><small id="objKicker">FREE ROAM</small><span id="objText">Explore the city.</span></div>
+  <div id="prompt" class="panel hidden"></div>
+  <div id="bustWrap" class="panel hidden"><span>POLICE ARE CLOSING IN</span><div id="bustOuter"><div id="bustBar"></div></div></div>
+  <div id="speedo" class="panel hidden"><b id="speedVal">0</b> <span>MPH</span><div id="carName"></div></div>
+  <div id="hint" class="panel"><b>WASD</b> move / drive &nbsp; <b>Mouse</b> look &nbsp; <b>Shift</b> run<br>
+    <b>E</b> steal / exit car &nbsp; <b>Click</b> shoot &nbsp; <b>P</b> save &nbsp; <b>M</b> mute &nbsp; <b>Esc</b> pause</div>
+  <div id="crosshair" class="hidden"></div>
+  <div id="toast" class="panel hidden"></div>
+</div>
+
+<div id="titleScreen" class="screen">
+  <div class="tag">AN OPEN-WORLD CRIME STORY</div>
+  <h1>SOLARA BAY</h1>
+  <h2>SUN &middot; SALT &middot; SIN</h2>
+  <p>You are <b>Dario Vega</b>, a wheelman fresh out of the county lockup, back in the
+  sun-bleached streets of Solara Bay. Lena Ortiz has work for you — three jobs, one
+  payday, and every cop in the city between you and it. Steal what you need, drive
+  like you mean it, and don't get caught.</p>
+  <div class="btnRow">
+    <button id="startBtn">START THE STORY</button>
+    <button id="continueBtn" class="ghost hidden">CONTINUE — SAVED GAME</button>
+    <button id="roamBtn" class="ghost">FREE ROAM</button>
+  </div>
+  <div class="controls">
+    <b>WASD</b> walk &amp; drive &nbsp;&middot;&nbsp; <b>Mouse</b> look (click to lock) &nbsp;&middot;&nbsp;
+    <b>Shift</b> sprint &nbsp;&middot;&nbsp; <b>Space</b> jump<br>
+    <b>E</b> steal a car / get out &nbsp;&middot;&nbsp; <b>Left click</b> fire pistol &nbsp;&middot;&nbsp;
+    <b>P</b> save &nbsp;&middot;&nbsp; <b>M</b> mute &nbsp;&middot;&nbsp; <b>Esc</b> pause
+  </div>
+</div>
+
+<div id="pauseScreen" class="screen dark hidden">
+  <h1>PAUSED</h1>
+  <p>Solara Bay waits for no one. Except right now — it is waiting for you.</p>
+  <div class="btnRow">
+    <button id="resumeBtn">RESUME</button>
+    <button id="saveBtn" class="ghost">SAVE GAME (P)</button>
+    <button id="quitBtn" class="ghost">QUIT TO TITLE</button>
+  </div>
+</div>
+
+<div id="missionScreen" class="screen dark hidden">
+  <h2>JOB COMPLETE</h2>
+  <h1 id="missionTitle">DOCK SIDE PICKUP</h1>
+  <p id="missionText"></p>
+  <div class="statLine" id="missionPay"></div>
+  <div class="btnRow"><button id="missionNextBtn">KEEP GOING</button></div>
+</div>
+
+<div id="storyScreen" class="screen dark hidden">
+  <h2>THE BAY IS YOURS</h2>
+  <h1>STORY COMPLETE</h1>
+  <p>Dario Vega did all three jobs, outran the whole Solara Bay PD, and walked away
+  with the money. Lena Ortiz is already calling about the next one — but that's
+  another story. Free roam is open: the city, its cars and its cops are all yours.</p>
+  <div class="statLine" id="storyStats"></div>
+  <div class="btnRow"><button id="storyFreeBtn">FREE ROAM</button></div>
+</div>
+
+<div id="bustedScreen" class="screen dark hidden">
+  <h1>BUSTED</h1>
+  <p>The Solara Bay PD finally boxed you in. Lena Ortiz will post bail — but the
+  heat stays on, and the impound fee comes out of your pocket.</p>
+  <div class="btnRow"><button id="bustedBtn">BACK ON THE STREET</button></div>
+</div>
+
+<div id="wastedScreen" class="screen dark hidden">
+  <h1>WASTED</h1>
+  <p>Solara Bay is a beautiful place to get yourself killed. The paramedics patch
+  you up; the hospital bill does not patch itself.</p>
+  <div class="btnRow"><button id="wastedBtn">WAKE UP AT THE HOSPITAL</button></div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
